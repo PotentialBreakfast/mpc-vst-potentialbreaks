@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.3 (2026-11)
+- The plugin's name on its page now reads **PotentialBreaks** (was all capitals), matching its name in the MPC's plugin list. Nothing else changed.
+
 ## 1.1.2 (2026-11)
 - New look: Barlow fonts, raised panels with soft shadows, glowing amber knob arcs, even-sized button labels and darker display wells.
 - MIDI from other tracks can no longer change the plugin's settings (NRPN control is off). Q-Links and CC 20-35 still work.
