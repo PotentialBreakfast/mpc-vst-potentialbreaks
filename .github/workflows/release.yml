@@ -33,6 +33,7 @@ jobs:
           have=$(gh release list --repo ${{ github.repository }} --limit 200 --json tagName -q '.[].tagName' || true)
           tags=()
           for f in .github/release-notes/v*.md; do
+            [ -e "$f" ] || continue   # no notes yet
             t=$(basename "$f" .md)
             echo "$have" | grep -qx "$t" || tags+=("$t")
           done
@@ -65,7 +66,8 @@ jobs:
         run: |
           git clone -q "$KIT_REPO" kit && git -C kit checkout -q "$KIT_REF"
           git -C kit apply ../shared/mpc-vst-plugins-label-fit.patch
-          pip install "ziglang==$ZIG_VERSION" pillow
+          pip install "ziglang==$ZIG_VERSION" pillow playwright
+          python -m playwright install --with-deps chromium   # the skin is drawn by the kit's browser renderer ("art": "html")
           sudo apt-get update -qq && sudo apt-get install -y -qq gcc
 
       - name: Check the version in vst.json matches the tag
@@ -79,8 +81,6 @@ jobs:
           PY
 
       - name: Skin, params and host test
-        env:
-          SHADOW_TITLE_FONT: ${{ github.workspace }}/kit/tools/html_art/fonts/TitilliumWeb-SemiBold.ttf
         run: |
           P=.
           mkdir -p $P/vst/build

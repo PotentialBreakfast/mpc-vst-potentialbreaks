@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2 (2026-11)
+- New look: Barlow fonts, raised panels with soft shadows, glowing amber knob arcs, even-sized button labels and darker display wells.
+- MIDI from other tracks can no longer change the plugin's settings (NRPN control is off). Q-Links and CC 20-35 still work.
+
 ## 1.1.1 (2026-11)
 - First public release.
 - Random break, PREV, NEXT and LIBRARY; long tracks are cut to random 1, 2 or 4 bar loops.

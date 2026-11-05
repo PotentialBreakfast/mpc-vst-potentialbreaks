@@ -40,6 +40,6 @@ projects with their own licences.
 
 `src/vendor/dr_wav.h` and `dr_flac.h`, from https://github.com/mackron/dr_libs. Details and the exact version are in `src/vendor/VENDORED.md`.
 
-## Font
+## Fonts – SIL Open Font License 1.1
 
-Button labels are drawn with Titillium Web (SIL Open Font License 1.1), bundled with mpc-vst-plugins.
+**Barlow** and **Barlow Condensed** by Jeremy Tribby (https://github.com/jpt/barlow), from Google Fonts. The `.ttf` files and the licence (`OFL-Barlow.txt`) are in `vst/skin/fonts/`. They are used to draw the plugin's page; the fonts themselves are not changed.

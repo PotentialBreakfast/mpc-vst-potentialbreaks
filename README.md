@@ -2,9 +2,9 @@
 
 **Dig, chop, play.** Tap one button for a random drum break from your own library. It's sliced across 16 pads and matched to your project's tempo, ready to flip.
 
-![PotentialBreaks running on an MPC One](docs/images/potentialbreaks.png)
+![PotentialBreaks's page on the MPC (new look)](docs/images/potentialbreaks.png)
 
-*Instrument plugin · MPC OS 3.x · Gen1 (32-bit) · v1.1.1*
+*Instrument plugin · MPC OS 3.x · Gen1 (32-bit) · v1.1.2*
 
 Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC like its own instruments, with its own touchscreen page, Q-Link control and project recall, and no computer needed while you play.
 
@@ -93,8 +93,9 @@ You don't need to be technical. Short messages are great. See [CONTRIBUTING.md](
 ## More from PotentialBreaks
 
 - **[PotentialPatina](https://github.com/PotentialBreakfast/mpc-vst-potentialpatina)**: Retro-colour insert effect: vinyl and tape noise, wobble, drive, bit-crush, tone and room in one box.
+- **[PotentialWax](https://github.com/PotentialBreakfast/mpc-vst-potentialwax)**: Melodic sampler: pick or dig a song from your library, 16 cues found for you, matched to your tempo and key.
+- **[PotentialNoise](https://github.com/PotentialBreakfast/mpc-vst-potentialnoise)**: Calibrated pink noise reference for mixing: one-tap RMS levels, mono/stereo, full or limited range, live meter.
 - **[MPC TOOLS](https://github.com/PotentialBreakfast/mpc-tools)**: a free second-screen app for Windows: your MPC's screen live on your PC (and in OBS), file transfer, your PC's folders on the MPC, and one-click "save the last 60 seconds".
-- On the way: **PotentialWax**, a sampler for chopping melodic loops and whole songs.
 
 ## Build it yourself
 
@@ -104,7 +105,8 @@ See [BUILD.md](BUILD.md).
 
 - Built on **[mpc-vst-plugins](https://github.com/sd88me/mpc-vst-plugins)** by sd88me (MIT), the open kit that makes MPC plugins possible: the plugin wrapper, skin builder and installer.
 - Audio file reading by **[dr_libs](https://github.com/mackron/dr_libs)** (dr_wav and dr_flac) by David Reid (public domain / MIT-0).
-- The look matches the dark theme I made for sd88me's Lucky Dip.
+- Fonts: **Barlow** and **Barlow Condensed** by Jeremy Tribby (SIL Open Font License 1.1), in `vst/skin/fonts/`.
+- The dark look grew out of the theme I made for sd88me's Lucky Dip.
 - Made with help from Claude (Anthropic).
 
 Not affiliated with or endorsed by Akai Professional or inMusic. MPC is their trademark.
