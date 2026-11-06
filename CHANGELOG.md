@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.4 (2026-11)
+- Fixed: pressing **STOP** or **Overdub** while the MPC was playing could load a random break. The MPC's host briefly "presses" a plugin's first parameter when it re-prepares audio, and that was RANDOM BREAK. That first slot now does nothing; RANDOM BREAK is a new parameter at the end. The button works the same.
+- If you had automation or a Q-Link on RANDOM BREAK (unlikely), point it at the new **Random Break** parameter.
+
 ## 1.1.3 (2026-11)
 - The plugin's name on its page now reads **PotentialBreaks** (was all capitals), matching its name in the MPC's plugin list. Nothing else changed.
 

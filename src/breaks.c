@@ -49,6 +49,7 @@ enum {
     P_LIB_NAME, P_BREAK_NAME, P_INFO, P_STATUS,
     P_CHOP, P_BARS, P_TEMPO_MODE, P_PITCH, P_CHOKE, P_VOLUME,
     P_SHUFFLE, P_ORDER, P_LEARN, P_PLAY_LOOP, P_SAVE_GROOVE, P_BASE_NOTE, P_RESCAN,
+    P_RANDOM_BREAK,   /* 1.1.4: RANDOM BREAK moved here; P_RANDOM (parameter 0) is a dead slot, see set_param */
     NP
 };
 static const char *const PKEY[NP] = {
@@ -56,6 +57,7 @@ static const char *const PKEY[NP] = {
     "lib_name", "break_name", "info", "status",
     "chop", "bars", "tempo_mode", "pitch", "choke", "volume",
     "shuffle", "order", "learn", "play_loop", "save_groove", "base_note", "rescan",
+    "random_break",
 };
 enum { CHOP_GRID8, CHOP_GRID16, CHOP_HITS };
 enum { TM_REPITCH, TM_STRETCH };
@@ -997,7 +999,10 @@ static void set_param(void *inst, const char *key, const char *val) {
     float v = (float)atof(val);
     int press = v > 0.5f;
     switch (i) {
-    case P_RANDOM: if (press) wake(s, &s->rq_random, 1); return;
+    /* Parameter 0 is a dead slot: MPC's host flicks parameter 0 on STOP and on Overdub while playing, which loaded a
+     * random break (1.1.3 and before). RANDOM BREAK is parameter "random_break" at the end. */
+    case P_RANDOM: return;
+    case P_RANDOM_BREAK: if (press) wake(s, &s->rq_random, 1); return;
     case P_PREV: if (press) wake(s, &s->rq_prev, 1); return;
     case P_NEXT: if (press) wake(s, &s->rq_next, 1); return;
     case P_LIB_NEXT: if (press) wake(s, &s->rq_lib, 1); return;
@@ -1060,7 +1065,7 @@ static int get_param(void *inst, const char *key, char *buf, int buf_len) {
     }
     int n;
     if (txt) n = snprintf(buf, buf_len, "%s", txt);
-    else if (i == P_RANDOM || i == P_PREV || i == P_NEXT || i == P_LIB_NEXT || i == P_SHUFFLE || i == P_ORDER || i == P_LEARN ||
+    else if (i == P_RANDOM || i == P_RANDOM_BREAK || i == P_PREV || i == P_NEXT || i == P_LIB_NEXT || i == P_SHUFFLE || i == P_ORDER || i == P_LEARN ||
              i == P_PLAY_LOOP || i == P_SAVE_GROOVE || i == P_RESCAN)
         n = snprintf(buf, buf_len, "0");
     else n = snprintf(buf, buf_len, "%g", (double)s->p[i]);

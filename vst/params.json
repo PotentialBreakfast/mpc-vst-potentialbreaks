@@ -3,9 +3,10 @@
  "params": [
   {
    "key": "random",
-   "name": "Random Break",
+   "name": "(unused)",
    "type": "trigger",
-   "momentary": true
+   "momentary": true,
+   "legacy": true
   },
   {
    "key": "prev",
@@ -153,6 +154,12 @@
   {
    "key": "rescan",
    "name": "Rescan Folders",
+   "type": "trigger",
+   "momentary": true
+  },
+  {
+   "key": "random_break",
+   "name": "Random Break",
    "type": "trigger",
    "momentary": true
   }
