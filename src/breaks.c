@@ -28,6 +28,7 @@
 #include <time.h>
 #include <unistd.h>
 #include "engine.h"
+#include "../shared/looks/potential_theme.h"   /* the LOOK switch (parameter "theme") */
 
 #define DR_WAV_IMPLEMENTATION
 #define DR_WAV_NO_STDIO_WIDE
@@ -303,7 +304,7 @@ static void library_scan(library_t *L, int *nroots_out) {
             free(subs[i]);
         }
     }
-    qsort(L->e, L->n, sizeof *L->e, cmp_entry);
+    if (L->n) qsort(L->e, L->n, sizeof *L->e, cmp_entry);
     for (int i = 0; i < L->n; i++) L->lib[L->e[i].lib].count++;
     L->lib[0].count = L->n;
     int map[MAX_LIBS], k = 1;   /* drop empty libraries */
@@ -588,6 +589,7 @@ typedef struct {
     pcm_t file;                /* the decoded file the loop came from (worker side) */
     unsigned seed;
     int saved_lib; char saved_name[160];
+    pt_theme_t theme;   /* which look MPC loads next time: not part of the saved state */
 } pb_t;
 
 static void set_text(pb_t *s, char *dst, size_t n, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
@@ -797,9 +799,9 @@ static void wake(pb_t *s, int *flag, int val) {
 static const float PDEF[NP] = {0, 0, 0, 0, 0, 0, 0, 0, CHOP_GRID16, 1, TM_REPITCH, 0, 1, 0, 0, 0, 0, 0, 0, 36, 0};
 
 static void *create(const char *data_dir) {
-    (void)data_dir;
     pb_t *s = calloc(1, sizeof *s);
     if (!s) return NULL;
+    pt_theme_init(&s->theme, data_dir);
     for (int i = 0; i < NP; i++) s->p[i] = PDEF[i];
     for (int i = 0; i < NPADS; i++) s->perm[i] = i;
     s->host_bpm = 0;
@@ -967,6 +969,7 @@ static void shuffle(pb_t *s) {
 
 static void set_param(void *inst, const char *key, const char *val) {
     pb_t *s = inst;
+    if (pt_theme_set(&s->theme, key, val)) return;
     if (!strcmp(key, "lfo_bpm")) { s->host_bpm = (float)atof(val); return; }
     if (!strcmp(key, "state")) {   /* "chop=1;bars=1;...;lib=3;file=/media/...;perm=0,1,2,..." */
         char tmp[2048]; snprintf(tmp, sizeof tmp, "%s", val);
@@ -1029,6 +1032,7 @@ static void set_param(void *inst, const char *key, const char *val) {
 
 static int get_param(void *inst, const char *key, char *buf, int buf_len) {
     pb_t *s = inst;
+    { int pt_n = pt_theme_get(&s->theme, key, buf, buf_len); if (pt_n) return pt_n; }
     if (!strcmp(key, "display_rev")) {
         pthread_mutex_lock(&s->text_mx);
         int n = snprintf(buf, buf_len, "%u", s->display_rev);
