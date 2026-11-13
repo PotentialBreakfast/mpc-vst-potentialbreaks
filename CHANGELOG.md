@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.0 (2026-11)
+- **BROWSE page**: pick the exact break you want. It lists the breaks in the current library 10 at a time; tap a name to load it. **PAGE UP** / **PAGE DOWN** move through the list, **LIBRARY** switches folders without loading anything, and the break that's playing is lit. It opens on the page with the current break.
+- Two pages now: BREAKS (as before) and BROWSE. Fourteen parameters were added at the end of the list for the page; saved projects open as before.
+
 ## 1.4.0 (2026-11)
 - **ROLL**: one tap for a random break played a random way. **MILD** chops it on the grid, in order. **MEDIUM** may also chop on the HITS, change the loop length, shuffle the pads and move the pitch a little. **WILD** shuffles every time, can switch the tempo mode and pitches up to 7 semitones either way. RANDOM BREAK still just picks a break.
 - **GRID chop now always cuts on the beat.** Before, a loop that wasn't 1, 2, 4 or 8 bars long was cut into 8 or 16 equal pieces, so the slices (and the MIDI from SAVE KIT and SAVE GROOVE) fell between the beats: a 7-bar loop gave slices 1 3/4 beats long. Now each slice is a whole number of beats (or a half or quarter beat), as many as fit on the pads: a 7-bar loop gives 14 slices of 2 beats. 1, 2, 4 and 8 bar loops are cut as before.

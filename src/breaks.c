@@ -57,6 +57,7 @@ enum {
     P_RANDOM_BREAK,   /* 1.1.4: RANDOM BREAK moved here; P_RANDOM (parameter 0) is a dead slot, see set_param */
     P_SAVE_KIT,       /* 1.3.0 (after the LOOK parameter in params.json) */
     P_DICE, P_WILD,   /* 1.4.0: ROLL and how wild it rolls */
+    P_PICK1, P_PICK10 = P_PICK1 + 9, P_PAGE_UP, P_PAGE_DOWN, P_BROWSE_INFO, P_BROWSE_LIB,   /* 1.5.0: the BROWSE page */
     NP
 };
 static const char *const PKEY[NP] = {
@@ -65,7 +66,10 @@ static const char *const PKEY[NP] = {
     "chop", "bars", "tempo_mode", "pitch", "choke", "volume",
     "shuffle", "order", "learn", "play_loop", "save_groove", "base_note", "rescan",
     "random_break", "save_kit", "dice", "wild",
+    "pick_1", "pick_2", "pick_3", "pick_4", "pick_5", "pick_6", "pick_7", "pick_8", "pick_9", "pick_10",
+    "page_up", "page_down", "browse_info", "browse_lib",
 };
+#define NROWS 10   /* BROWSE: break names per page */
 enum { CHOP_GRID8, CHOP_GRID16, CHOP_HITS };
 enum { TM_REPITCH, TM_STRETCH };
 
@@ -597,7 +601,12 @@ typedef struct {
     int quit;
     int rq_random, rq_prev, rq_next, rq_lib, rq_rechop, rq_save, rq_restore, rq_rescan, rq_kit;
     int dice_order;            /* after a ROLL's new break: 1 = slices in order, 2 = shuffled */
-    uint32_t pending;          /* parameters ROLL changed, for the host to read back (mpc_engine_changed) */
+    uint64_t pending;          /* parameters ROLL changed, for the host to read back (mpc_engine_changed) */
+    int rq_pick;               /* BROWSE: a tapped name (entry + 1) */
+    pthread_mutex_t lib_mx;    /* the library list: the worker rescans it, the screen reads names from it (BROWSE) */
+    int bpage;                 /* BROWSE: the page shown */
+    int rq_lib_browse;         /* LIBRARY tapped on the BROWSE page: change library without loading a break */
+    time_t quiet_until;        /* list taps are ignored until then: a project opening sets values, it doesn't tap */
     char restore_name[160];
     library_t libs;
     int scanned;
@@ -656,6 +665,7 @@ static void load_entry(pb_t *s, int i) {
     free(s->file.lr);
     s->file = pc;
     s->cur_entry = i;
+    { int first = lib_first(s, s->cur_lib); if (first >= 0 && i >= first) s->bpage = (i - first) / NROWS; }
     snprintf(s->file_name, sizeof s->file_name, "%s", e->name);
     loop_t *L = make_loop(&s->file, e->name, (int)s->p[P_BARS] == 0 ? 1 : (int)s->p[P_BARS] == 1 ? 2 : 4, &s->seed,
                           (int)s->p[P_CHOP]);
@@ -812,10 +822,15 @@ static void save_kit(pb_t *s, const loop_t *L, const int *perm, double hb, doubl
 
 static void scan(pb_t *s) {
     int nroots = 0;
+    library_t fresh;
+    library_scan(&fresh, &nroots);   /* the slow part, without the lock */
+    pthread_mutex_lock(&s->lib_mx);
     library_free(&s->libs);
-    library_scan(&s->libs, &nroots);
+    s->libs = fresh;
     s->scanned = 1;
     s->cur_lib = 0;
+    s->bpage = 0;
+    pthread_mutex_unlock(&s->lib_mx);
     if (!s->libs.n) {
         set_text(s, s->lib_name, sizeof s->lib_name, "NO BREAKS FOUND");
         set_text(s, s->status, sizeof s->status, "NAME A FOLDER WITH 'BREAKS' IN IT, THEN TAP RESCAN");
@@ -842,12 +857,12 @@ static void *worker(void *arg) {
     for (;;) {
         pthread_mutex_lock(&s->mx);
         while (!s->quit && !s->rq_random && !s->rq_prev && !s->rq_next && !s->rq_lib && !s->rq_rechop && !s->rq_save &&
-               !s->rq_restore && !s->rq_rescan && !s->rq_kit && !s->garbage)
+               !s->rq_restore && !s->rq_rescan && !s->rq_kit && !s->rq_pick && !s->garbage)
             pthread_cond_wait(&s->cv, &s->mx);
         if (s->quit) { pthread_mutex_unlock(&s->mx); break; }
         int r = s->rq_random, pv = s->rq_prev, nx = s->rq_next, lb = s->rq_lib, rc = s->rq_rechop, sv = s->rq_save,
-            rs = s->rq_restore, rsc = s->rq_rescan, kt = s->rq_kit;
-        s->rq_random = s->rq_prev = s->rq_next = s->rq_lib = s->rq_rechop = s->rq_save = s->rq_restore = s->rq_rescan = s->rq_kit = 0;
+            rs = s->rq_restore, rsc = s->rq_rescan, kt = s->rq_kit, pick = s->rq_pick;
+        s->rq_random = s->rq_prev = s->rq_next = s->rq_lib = s->rq_rechop = s->rq_save = s->rq_restore = s->rq_rescan = s->rq_kit = s->rq_pick = 0;
         char want[160]; snprintf(want, sizeof want, "%s", s->restore_name);
         pthread_mutex_unlock(&s->mx);
         pthread_mutex_lock(&s->xfer_mx);
@@ -868,10 +883,18 @@ static void *worker(void *arg) {
             }
             continue;
         }
+        if (pick > 0 && pick - 1 < s->libs.n) load_entry(s, pick - 1);   /* BROWSE: a tapped name */
         if (lb) {
+            pthread_mutex_lock(&s->lib_mx);
             s->cur_lib = (s->cur_lib + lb) % s->libs.nlib;
+            s->bpage = 0;
+            pthread_mutex_unlock(&s->lib_mx);
             show_lib(s);
-            r = 1;   /* a new library: deal a break from it straight away */
+            pthread_mutex_lock(&s->mx);
+            int browse = s->rq_lib_browse; s->rq_lib_browse = 0;
+            pthread_mutex_unlock(&s->mx);
+            if (browse) { pthread_mutex_lock(&s->text_mx); s->display_rev++; pthread_mutex_unlock(&s->text_mx); }
+            else r = 1;   /* a new library: deal a break from it straight away */
         }
         if (r || pv || nx) {
             int lib = s->cur_lib, first = lib_first(s, lib), cnt = s->libs.lib[lib].count;
@@ -939,6 +962,8 @@ static void *create(const char *data_dir) {
     pthread_mutex_init(&s->text_mx, NULL);
     pthread_mutex_init(&s->xfer_mx, NULL);
     pthread_mutex_init(&s->mx, NULL);
+    pthread_mutex_init(&s->lib_mx, NULL);
+    s->quiet_until = time(NULL) + 3;
     pthread_cond_init(&s->cv, NULL);
     snprintf(s->lib_name, sizeof s->lib_name, "SCANNING...");
     snprintf(s->break_name, sizeof s->break_name, "-");
@@ -961,7 +986,7 @@ static void destroy(void *inst) {
     loop_free(s->cur); loop_free(s->next); loop_free(s->garbage);
     free(s->file.lr);
     library_free(&s->libs);
-    pthread_mutex_destroy(&s->text_mx); pthread_mutex_destroy(&s->xfer_mx); pthread_mutex_destroy(&s->mx);
+    pthread_mutex_destroy(&s->text_mx); pthread_mutex_destroy(&s->xfer_mx); pthread_mutex_destroy(&s->mx); pthread_mutex_destroy(&s->lib_mx);
     pthread_cond_destroy(&s->cv);
     free(s);
 }
@@ -1099,7 +1124,7 @@ static void roll(pb_t *s) {
     s->p[P_PITCH] = PITCH[w] ? (float)((int)(dice_r(s) % (unsigned)(2 * PITCH[w] + 1)) - PITCH[w]) : 0.0f;
     if (w == 2) s->p[P_TEMPO_MODE] = (float)(dice_r(s) & 1);
     int order = w == 0 ? 1 : w == 1 ? 1 + (int)(dice_r(s) & 1) : 2;
-    s->pending |= (1u << P_CHOP) | (1u << P_BARS) | (1u << P_PITCH) | (1u << P_TEMPO_MODE);
+    s->pending |= (1ull << P_CHOP) | (1ull << P_BARS) | (1ull << P_PITCH) | (1ull << P_TEMPO_MODE);
     pthread_mutex_lock(&s->mx);
     s->dice_order = order;
     s->rq_random = 1;
@@ -1127,7 +1152,18 @@ static void set_param(void *inst, const char *key, const char *val) {
     pb_t *s = inst;
     if (pt_theme_set(&s->theme, key, val)) return;
     if (!strcmp(key, "lfo_bpm")) { s->host_bpm = (float)atof(val); return; }
+    if (!strncmp(key, "pick_", 5)) {   /* a BROWSE row: any tap (the row toggles either way) loads that break */
+        int row = atoi(key + 5) - 1;
+        if (row < 0 || row >= NROWS || time(NULL) < s->quiet_until) return;
+        pthread_mutex_lock(&s->lib_mx);
+        int first = lib_first(s, s->cur_lib), cnt = s->cur_lib < s->libs.nlib ? s->libs.lib[s->cur_lib].count : 0;
+        int k = s->bpage * NROWS + row, idx = (first >= 0 && k < cnt) ? first + k : -1;
+        pthread_mutex_unlock(&s->lib_mx);
+        if (idx >= 0) wake(s, &s->rq_pick, idx + 1);
+        return;
+    }
     if (!strcmp(key, "state")) {   /* "chop=1;bars=1;...;lib=3;file=/media/...;perm=0,1,2,..." */
+        s->quiet_until = time(NULL) + 3;
         char tmp[2048]; snprintf(tmp, sizeof tmp, "%s", val);
         char *save = NULL;
         for (char *tok = strtok_r(tmp, ";", &save); tok; tok = strtok_r(NULL, ";", &save)) {
@@ -1176,6 +1212,20 @@ static void set_param(void *inst, const char *key, const char *val) {
     case P_SAVE_GROOVE: if (press) wake(s, &s->rq_save, 1); return;
     case P_SAVE_KIT: if (press) wake(s, &s->rq_kit, 1); return;
     case P_DICE: if (press) roll(s); return;
+    case P_BROWSE_LIB:
+        if (press) { pthread_mutex_lock(&s->mx); s->rq_lib_browse = 1; pthread_mutex_unlock(&s->mx); wake(s, &s->rq_lib, 1); }
+        return;
+    case P_PAGE_UP: case P_PAGE_DOWN:
+        if (press) {
+            pthread_mutex_lock(&s->lib_mx);
+            int lib = s->cur_lib, cnt = lib >= 0 && lib < s->libs.nlib ? s->libs.lib[lib].count : 0;
+            int pages = cnt > 0 ? (cnt + NROWS - 1) / NROWS : 1;
+            s->bpage = (s->bpage + (i == P_PAGE_DOWN ? 1 : -1) + pages) % pages;   /* wraps round */
+            pthread_mutex_unlock(&s->lib_mx);
+            pthread_mutex_lock(&s->text_mx); s->display_rev++; pthread_mutex_unlock(&s->text_mx);
+        }
+        return;
+    case P_BROWSE_INFO: return;
     case P_WILD: s->p[i] = v < 0 ? 0 : v > 2 ? 2 : (float)lroundf(v); return;
     case P_RESCAN: if (press) wake(s, &s->rq_rescan, 1); return;
     case P_LIB_NAME: case P_BREAK_NAME: case P_INFO: case P_STATUS: return;
@@ -1192,7 +1242,7 @@ static void set_param(void *inst, const char *key, const char *val) {
 int mpc_engine_changed(void *inst, char *key, int len) {
     pb_t *s = inst;
     for (int i = 0; i < NP; i++)
-        if (s->pending & (1u << i)) { s->pending &= ~(1u << i); snprintf(key, len, "%s", PKEY[i]); return 1; }
+        if (s->pending & (1ull << i)) { s->pending &= ~(1ull << i); snprintf(key, len, "%s", PKEY[i]); return 1; }
     return 0;
 }
 
@@ -1203,6 +1253,34 @@ static int get_param(void *inst, const char *key, char *buf, int buf_len) {
         pthread_mutex_lock(&s->text_mx);
         int n = snprintf(buf, buf_len, "%u", s->display_rev);
         pthread_mutex_unlock(&s->text_mx);
+        return n;
+    }
+    if (!strncmp(key, "pick_", 5)) {   /* "pick_3": the 3rd name on the page; "pick_3_on": is it the break loaded */
+        int row = atoi(key + 5) - 1, on = strstr(key, "_on") != NULL;
+        if (row < 0 || row >= NROWS) return 0;
+        if (pthread_mutex_trylock(&s->lib_mx)) return snprintf(buf, buf_len, "%s", on ? "0" : " ");   /* rescanning */
+        int first = lib_first(s, s->cur_lib), cnt = s->cur_lib < s->libs.nlib ? s->libs.lib[s->cur_lib].count : 0;
+        int k = s->bpage * NROWS + row, idx = (first >= 0 && k < cnt) ? first + k : -1;
+        int n;
+        if (on) n = snprintf(buf, buf_len, "%d", idx >= 0 && idx == s->cur_entry);
+        else if (idx < 0) n = snprintf(buf, buf_len, " ");
+        else {
+            const char *nm = s->libs.e[idx].name, *dot = strrchr(nm, '.');
+            n = snprintf(buf, buf_len, "%.*s", (int)(dot ? dot - nm : (long)strlen(nm)), nm);
+        }
+        pthread_mutex_unlock(&s->lib_mx);
+        return n;
+    }
+    if (!strcmp(key, "browse_info")) {
+        if (pthread_mutex_trylock(&s->lib_mx)) return snprintf(buf, buf_len, "LOOKING FOR BREAKS...");
+        int n;
+        if (!s->libs.n) n = snprintf(buf, buf_len, "NO BREAKS FOUND - SEE THE BREAKS PAGE");
+        else {
+            const lib_t *l = &s->libs.lib[s->cur_lib < s->libs.nlib ? s->cur_lib : 0];
+            int pages = l->count > 0 ? (l->count + NROWS - 1) / NROWS : 1;
+            n = snprintf(buf, buf_len, "%s  (%d)   PAGE %d / %d", l->name, l->count, s->bpage + 1, pages);
+        }
+        pthread_mutex_unlock(&s->lib_mx);
         return n;
     }
     if (!strcmp(key, "state")) {
@@ -1237,7 +1315,8 @@ static int get_param(void *inst, const char *key, char *buf, int buf_len) {
     int n;
     if (txt) n = snprintf(buf, buf_len, "%s", txt);
     else if (i == P_RANDOM || i == P_RANDOM_BREAK || i == P_PREV || i == P_NEXT || i == P_LIB_NEXT || i == P_SHUFFLE || i == P_ORDER || i == P_LEARN ||
-             i == P_PLAY_LOOP || i == P_SAVE_GROOVE || i == P_RESCAN || i == P_SAVE_KIT || i == P_DICE)
+             i == P_PLAY_LOOP || i == P_SAVE_GROOVE || i == P_RESCAN || i == P_SAVE_KIT || i == P_DICE ||
+             i == P_PAGE_UP || i == P_PAGE_DOWN || i == P_BROWSE_LIB)
         n = snprintf(buf, buf_len, "0");
     else n = snprintf(buf, buf_len, "%g", (double)s->p[i]);
     pthread_mutex_unlock(&s->text_mx);

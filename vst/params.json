@@ -194,6 +194,92 @@
         "WILD"
       ],
       "default": 1
+    },
+    {
+      "key": "pick_1",
+      "name": "Break 1",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_2",
+      "name": "Break 2",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_3",
+      "name": "Break 3",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_4",
+      "name": "Break 4",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_5",
+      "name": "Break 5",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_6",
+      "name": "Break 6",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_7",
+      "name": "Break 7",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_8",
+      "name": "Break 8",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_9",
+      "name": "Break 9",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "pick_10",
+      "name": "Break 10",
+      "type": "slot",
+      "display": "string"
+    },
+    {
+      "key": "page_up",
+      "name": "Page Up",
+      "type": "trigger",
+      "momentary": true
+    },
+    {
+      "key": "page_down",
+      "name": "Page Down",
+      "type": "trigger",
+      "momentary": true
+    },
+    {
+      "key": "browse_info",
+      "name": "Browse",
+      "display": "string",
+      "default": 0,
+      "min": 0,
+      "max": 1
+    },
+    {
+      "key": "browse_lib",
+      "name": "Browse Next Library",
+      "type": "trigger",
+      "momentary": true
     }
   ]
 }

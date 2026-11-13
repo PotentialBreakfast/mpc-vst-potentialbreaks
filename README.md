@@ -12,7 +12,7 @@ Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC 
 
 ## What it does
 
-- **RANDOM BREAK** picks a break from your library. **PREV** and **NEXT** step through them, and **LIBRARY** switches folders.
+- **RANDOM BREAK** picks a break from your library. **PREV** and **NEXT** step through them, **LIBRARY** switches folders, and the **BROWSE** page lists 10 breaks at a time so you can tap the one you want.
 - **ROLL** picks a random break and a random way to play it (chop, loop length, pad order, pitch). **MILD**, **MEDIUM** or **WILD** next to it sets how far it goes.
 - **Long tracks** (a whole drum-library track, say) get a random 1, 2 or 4 bar loop cut from them, starting on a hit. Short files are used as they are.
 - **Tempo** comes from the file name when it has one (`Funky Drummer 101bpm.wav` or `... 96 BPM.wav`). Otherwise it's measured.
