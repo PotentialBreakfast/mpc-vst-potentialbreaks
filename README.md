@@ -4,7 +4,7 @@
 
 ![PotentialBreaks's page on the MPC (new look)](docs/images/potentialbreaks.png)
 
-*Instrument plugin · MPC OS 3.x · Gen1 and Gen2 · v1.2.1*
+*Instrument plugin · MPC OS 3.x · Gen1 and Gen2 · v1.2.2*
 
 Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC like its own instruments, with its own touchscreen page, Q-Link control and project recall, and no computer needed while you play.
 
