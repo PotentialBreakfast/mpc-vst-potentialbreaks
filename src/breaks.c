@@ -56,6 +56,7 @@ enum {
     P_SHUFFLE, P_ORDER, P_LEARN, P_PLAY_LOOP, P_SAVE_GROOVE, P_BASE_NOTE, P_RESCAN,
     P_RANDOM_BREAK,   /* 1.1.4: RANDOM BREAK moved here; P_RANDOM (parameter 0) is a dead slot, see set_param */
     P_SAVE_KIT,       /* 1.3.0 (after the LOOK parameter in params.json) */
+    P_DICE, P_WILD,   /* 1.4.0: ROLL and how wild it rolls */
     NP
 };
 static const char *const PKEY[NP] = {
@@ -63,7 +64,7 @@ static const char *const PKEY[NP] = {
     "lib_name", "break_name", "info", "status",
     "chop", "bars", "tempo_mode", "pitch", "choke", "volume",
     "shuffle", "order", "learn", "play_loop", "save_groove", "base_note", "rescan",
-    "random_break", "save_kit",
+    "random_break", "save_kit", "dice", "wild",
 };
 enum { CHOP_GRID8, CHOP_GRID16, CHOP_HITS };
 enum { TM_REPITCH, TM_STRETCH };
@@ -474,9 +475,18 @@ static void chop(loop_t *L, int mode) {
             if (s > starts[n - 1] + HOP * 3) starts[n++] = s;
         }
     } else {
+        /* on the beat: slices of a whole power-of-two number of beats (or 1/2, 1/4 beat), as many as fit in 8 or 16 pads.
+           1, 2, 4, 8 bars give 8 or 16 equal slices; 7 bars give 14 slices of 2 beats (16 of 1 3/4 beats would drift off
+           the beat). */
         int N = mode == CHOP_GRID8 ? 8 : 16;
+        double beats = (L->bars > 0 ? L->bars : 1) * 4.0, per = 0.25;
+        while (beats / per > N + 1e-9) per *= 2.0;
+        int n_grid = (int)ceil(beats / per - 1e-9);
+        if (n_grid < 1) n_grid = 1;
+        if (n_grid > N) n_grid = N;
+        N = n_grid;
         for (int i = 0; i < N; i++) {
-            long s = (long)((double)L->frames * i / N);
+            long s = (long)((double)L->frames * (i * per) / beats);
             if (o && i > 0) {   /* snap to the strongest hit within +/- 30 ms */
                 int h0 = (int)(s / HOP), bh = h0; float bv = 0;
                 for (int h = h0 - 3; h <= h0 + 3; h++) if (h > 0 && h < H && o[h] > bv) { bv = o[h]; bh = h; }
@@ -586,6 +596,8 @@ typedef struct {
     pthread_mutex_t mx; pthread_cond_t cv;
     int quit;
     int rq_random, rq_prev, rq_next, rq_lib, rq_rechop, rq_save, rq_restore, rq_rescan, rq_kit;
+    int dice_order;            /* after a ROLL's new break: 1 = slices in order, 2 = shuffled */
+    uint32_t pending;          /* parameters ROLL changed, for the host to read back (mpc_engine_changed) */
     char restore_name[160];
     library_t libs;
     int scanned;
@@ -814,6 +826,16 @@ static void scan(pb_t *s) {
     }
 }
 
+/* pads in order, then (n > 1) the first n slices shuffled */
+static void shuffle_n(pb_t *s, int n) {
+    for (int k = 0; k < NPADS; k++) s->perm[k] = k;
+    for (int i = n - 1; i > 0; i--) {
+        s->seed = s->seed * 1664525u + 1013904223u;
+        int j = (int)((s->seed >> 8) % (unsigned)(i + 1));
+        int t = s->perm[i]; s->perm[i] = s->perm[j]; s->perm[j] = t;
+    }
+}
+
 static void *worker(void *arg) {
     pb_t *s = arg;
     scan(s);
@@ -862,6 +884,16 @@ static void *worker(void *arg) {
                 idx = first + rel;
             }
             load_entry(s, idx);
+            pthread_mutex_lock(&s->mx);
+            int dor = s->dice_order; s->dice_order = 0;
+            pthread_mutex_unlock(&s->mx);
+            if (dor) {
+                pthread_mutex_lock(&s->xfer_mx);
+                const loop_t *L = s->next ? s->next : s->cur;
+                int n = L ? L->nslices : NPADS;
+                pthread_mutex_unlock(&s->xfer_mx);
+                shuffle_n(s, dor == 2 ? n : 0);
+            }
         } else if (rc) rechop(s);
         if (sv) {
             pthread_mutex_lock(&s->xfer_mx);
@@ -898,6 +930,7 @@ static void *create(const char *data_dir) {
     if (!s) return NULL;
     pt_theme_init(&s->theme, data_dir);
     for (int i = 0; i < NP; i++) s->p[i] = PDEF[i];
+    s->p[P_WILD] = 1;   /* MEDIUM */
     for (int i = 0; i < NPADS; i++) s->perm[i] = i;
     s->host_bpm = 0;
     s->last_note = -1;
@@ -1046,6 +1079,34 @@ static void render(void *inst, int16_t *out_lr, int frames) {
 }
 
 /* ---------------- parameters ---------------- */
+/* ROLL: a random break from this library, cut and played a random way. MILD: grid chops, in order, no pitch.
+   MEDIUM: any chop or loop length, shuffled half the time, pitch +/-2. WILD: also the tempo mode, always shuffled,
+   pitch +/-7. */
+static unsigned dice_r(pb_t *s) { s->seed = s->seed * 1664525u + 1013904223u; return s->seed >> 8; }
+static int dice_pick(pb_t *s, const int *w, int n) {
+    int t = 0; for (int i = 0; i < n; i++) t += w[i];
+    int r = (int)(dice_r(s) % (unsigned)t);
+    for (int i = 0; i < n; i++) { if (r < w[i]) return i; r -= w[i]; }
+    return n - 1;
+}
+static void roll(pb_t *s) {
+    int w = (int)lroundf(s->p[P_WILD]); if (w < 0) w = 0; if (w > 2) w = 2;
+    static const int CHOP_W[3][3] = {{1, 4, 0}, {1, 3, 2}, {1, 1, 1}};
+    static const int BARS_W[3][3] = {{1, 3, 1}, {1, 2, 2}, {1, 1, 1}};
+    static const int PITCH[3] = {0, 2, 7};
+    s->p[P_CHOP] = (float)dice_pick(s, CHOP_W[w], 3);
+    s->p[P_BARS] = (float)dice_pick(s, BARS_W[w], 3);
+    s->p[P_PITCH] = PITCH[w] ? (float)((int)(dice_r(s) % (unsigned)(2 * PITCH[w] + 1)) - PITCH[w]) : 0.0f;
+    if (w == 2) s->p[P_TEMPO_MODE] = (float)(dice_r(s) & 1);
+    int order = w == 0 ? 1 : w == 1 ? 1 + (int)(dice_r(s) & 1) : 2;
+    s->pending |= (1u << P_CHOP) | (1u << P_BARS) | (1u << P_PITCH) | (1u << P_TEMPO_MODE);
+    pthread_mutex_lock(&s->mx);
+    s->dice_order = order;
+    s->rq_random = 1;
+    pthread_cond_signal(&s->cv);
+    pthread_mutex_unlock(&s->mx);
+}
+
 static int find(const char *key) {
     for (int i = 0; i < NP; i++) if (!strcmp(key, PKEY[i])) return i;
     return -1;
@@ -1114,6 +1175,8 @@ static void set_param(void *inst, const char *key, const char *val) {
     case P_PLAY_LOOP: if (press) start_voice(s, 0, 110, 1); return;
     case P_SAVE_GROOVE: if (press) wake(s, &s->rq_save, 1); return;
     case P_SAVE_KIT: if (press) wake(s, &s->rq_kit, 1); return;
+    case P_DICE: if (press) roll(s); return;
+    case P_WILD: s->p[i] = v < 0 ? 0 : v > 2 ? 2 : (float)lroundf(v); return;
     case P_RESCAN: if (press) wake(s, &s->rq_rescan, 1); return;
     case P_LIB_NAME: case P_BREAK_NAME: case P_INFO: case P_STATUS: return;
     case P_CHOP: case P_BARS: {
@@ -1124,6 +1187,13 @@ static void set_param(void *inst, const char *key, const char *val) {
     }
     default: s->p[i] = v; return;
     }
+}
+
+int mpc_engine_changed(void *inst, char *key, int len) {
+    pb_t *s = inst;
+    for (int i = 0; i < NP; i++)
+        if (s->pending & (1u << i)) { s->pending &= ~(1u << i); snprintf(key, len, "%s", PKEY[i]); return 1; }
+    return 0;
 }
 
 static int get_param(void *inst, const char *key, char *buf, int buf_len) {
@@ -1137,9 +1207,10 @@ static int get_param(void *inst, const char *key, char *buf, int buf_len) {
     }
     if (!strcmp(key, "state")) {
         int n = 0;
-        static const int keep[] = {P_CHOP, P_BARS, P_TEMPO_MODE, P_PITCH, P_CHOKE, P_VOLUME, P_BASE_NOTE};
-        for (size_t k = 0; k < sizeof keep / sizeof *keep; k++)
+        static const int keep[] = {P_CHOP, P_BARS, P_TEMPO_MODE, P_PITCH, P_CHOKE, P_VOLUME, P_BASE_NOTE, P_WILD};
+        for (size_t k = 0; k < sizeof keep / sizeof *keep && n < buf_len; k++)
             n += snprintf(buf + n, buf_len - n, "%s=%g;", PKEY[keep[k]], (double)s->p[keep[k]]);
+        if (n >= buf_len) return buf_len - 1;
         pthread_mutex_lock(&s->mx);
         n += snprintf(buf + n, buf_len - n, "lib=%d;file=%s;perm=", s->cur_lib, s->saved_name);
         pthread_mutex_unlock(&s->mx);
@@ -1166,7 +1237,7 @@ static int get_param(void *inst, const char *key, char *buf, int buf_len) {
     int n;
     if (txt) n = snprintf(buf, buf_len, "%s", txt);
     else if (i == P_RANDOM || i == P_RANDOM_BREAK || i == P_PREV || i == P_NEXT || i == P_LIB_NEXT || i == P_SHUFFLE || i == P_ORDER || i == P_LEARN ||
-             i == P_PLAY_LOOP || i == P_SAVE_GROOVE || i == P_RESCAN || i == P_SAVE_KIT)
+             i == P_PLAY_LOOP || i == P_SAVE_GROOVE || i == P_RESCAN || i == P_SAVE_KIT || i == P_DICE)
         n = snprintf(buf, buf_len, "0");
     else n = snprintf(buf, buf_len, "%g", (double)s->p[i]);
     pthread_mutex_unlock(&s->text_mx);

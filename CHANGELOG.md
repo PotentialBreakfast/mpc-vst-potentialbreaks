@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0 (2026-11)
+- **ROLL**: one tap for a random break played a random way. **MILD** chops it on the grid, in order. **MEDIUM** may also chop on the HITS, change the loop length, shuffle the pads and move the pitch a little. **WILD** shuffles every time, can switch the tempo mode and pitches up to 7 semitones either way. RANDOM BREAK still just picks a break.
+- **GRID chop now always cuts on the beat.** Before, a loop that wasn't 1, 2, 4 or 8 bars long was cut into 8 or 16 equal pieces, so the slices (and the MIDI from SAVE KIT and SAVE GROOVE) fell between the beats: a 7-bar loop gave slices 1 3/4 beats long. Now each slice is a whole number of beats (or a half or quarter beat), as many as fit on the pads: a 7-bar loop gives 14 slices of 2 beats. 1, 2, 4 and 8 bar loops are cut as before.
+- The DIG panel is rearranged to fit ROLL. Two parameters were added at the end of the list (Roll, Roll Wildness); saved projects open as before.
+
 ## 1.3.0 (2026-11)
 - **SAVE KIT**: one tap saves the 16 pads as a real **MPC drum program**: each pad as a WAV, as you hear it (at your tempo, pitch and shuffle), on pads A01-A16, with the groove as a MIDI file beside it. Load it like any program. It goes to `PotentialBreaks/Kits` on your breaks' drive, or to the folder named in `PotentialBreaks/kit-folder.txt`. Needs MPC OS 3.10.1 or later (the program format it writes).
 - The DIG panel has room for it: RANDOM BREAK on top, then SAVE KIT, SAVE GROOVE, PLAY LOOP and RESCAN.

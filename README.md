@@ -13,9 +13,10 @@ Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC 
 ## What it does
 
 - **RANDOM BREAK** picks a break from your library. **PREV** and **NEXT** step through them, and **LIBRARY** switches folders.
+- **ROLL** picks a random break and a random way to play it (chop, loop length, pad order, pitch). **MILD**, **MEDIUM** or **WILD** next to it sets how far it goes.
 - **Long tracks** (a whole drum-library track, say) get a random 1, 2 or 4 bar loop cut from them, starting on a hit. Short files are used as they are.
 - **Tempo** comes from the file name when it has one (`Funky Drummer 101bpm.wav` or `... 96 BPM.wav`). Otherwise it's measured.
-- **CHOP** gives you 8 even slices, 16 even slices (moved onto the nearest hit), or the 16 strongest hits.
+- **CHOP** gives you 8 or 16 even slices on the beat (moved onto the nearest hit), or the 16 strongest hits. A loop that doesn't split evenly gets whole-beat slices instead, for example 14 slices of 2 beats for a 7-bar loop, so the pads and the saved MIDI stay on the grid.
 - **TEMPO** has two modes:
   - **Re-pitch** speeds the break up or slows it down to your tempo, like an old sampler.
   - **Stretch** keeps each slice at its own pitch and cuts it to length, the classic chopped-break method.
