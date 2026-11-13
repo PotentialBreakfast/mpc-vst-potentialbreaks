@@ -2,7 +2,7 @@
  "name": "PotentialBreaks",
  "vendor": "PotentialBreaks",
  "uid": "PbBk",
- "version": 1200,
+ "version": 1201,
  "so": "potentialbreaks.so",
  "params": "params.json",
  "layout": "layout.conf",
