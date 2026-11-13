@@ -94,6 +94,9 @@ jobs:
             shared/looks/test_theme.c src/breaks.c -lm -lpthread -o vst/build/test_theme
           cp -r "vst/build/skin/PotentialBreaks - VST - PotentialBreaks" "$RUNNER_TEMP/plugin"
           vst/build/test_theme "$RUNNER_TEMP/plugin"
+          # SAVE KIT: the drum program writer, read back the way the MPC reads it
+          gcc -std=gnu11 -O1 -g -fsanitize=address,undefined -w -I src tests/test_kit.c -lm -o vst/build/test_kit
+          vst/build/test_kit vst/build/kits && python3 tests/check_kit.py vst/build/kits
 
       - name: Build for the MPC (Gen1, armv7)
         run: |

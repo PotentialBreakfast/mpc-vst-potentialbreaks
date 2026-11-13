@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0 (2026-11)
+- **SAVE KIT**: one tap saves the 16 pads as a real **MPC drum program**: each pad as a WAV, as you hear it (at your tempo, pitch and shuffle), on pads A01-A16, with the groove as a MIDI file beside it. Load it like any program. It goes to `PotentialBreaks/Kits` on your breaks' drive, or to the folder named in `PotentialBreaks/kit-folder.txt`. Needs MPC OS 3.10.1 or later (the program format it writes).
+- The DIG panel has room for it: RANDOM BREAK on top, then SAVE KIT, SAVE GROOVE, PLAY LOOP and RESCAN.
+
 ## 1.2.2 (2026-11)
 - **CPU figure recorded.** Measured on an MPC One with the Open MPC bench: **PASS**, 1.1% of an audio block at the 99th percentile and 2.5% at worst, so it runs comfortably alongside a full project. It shows on the catalog card and in INSTALL.md.
 - Nothing else changed: same sound, controls and saved projects as 1.2.1.

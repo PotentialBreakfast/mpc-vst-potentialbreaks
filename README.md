@@ -4,7 +4,7 @@
 
 ![PotentialBreaks's page on the MPC (new look)](docs/images/potentialbreaks.png)
 
-*Instrument plugin · MPC OS 3.x · Gen1 and Gen2 · v1.2.2*
+*Instrument plugin · MPC OS 3.x · Gen1 and Gen2 · v1.3.0*
 
 Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC like its own instruments, with its own touchscreen page, Q-Link control and project recall, and no computer needed while you play.
 
@@ -22,6 +22,7 @@ Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC 
 - **SHUFFLE** re-deals the slices across the pads, and **ORDER** puts them back.
 - **PLAY LOOP** (or the pad after pad 16) plays the whole loop.
 - **SAVE GROOVE** writes a MIDI file of the break's original slice order, so you can load it into a sequence and start from the real groove.
+- **SAVE KIT** turns the 16 pads into a real **MPC drum program**: each pad saved as a WAV, as you hear it (at your tempo, pitch and shuffle), on pads A01-A16, with the groove beside it as a MIDI file. Load it like any program and keep it after the plugin is gone. MPC OS 3.10.1 or later.
 - **CHOKE**, **PITCH** (±12 semitones) and **VOLUME** are here too.
 - Your project remembers the break, the chop, the pad order and the settings.
 
@@ -54,6 +55,7 @@ PotentialBreaks comes in three looks: **Print Plate** (the default), **Night Rac
 - **8 voices**, and only 44.1 kHz playback.
 - **The pads map like a keyboard.** The MPC treats a plugin track like a keyboard, so with some pad bank or octave settings pad 1 isn't note 36. LEARN fixes this.
 - **SAVE GROOVE** writes to the first drive your breaks are on, in a `PotentialBreaks` folder.
+- **SAVE KIT** writes to `PotentialBreaks/Kits` on that drive. To use your own programs folder instead, put its full path on the first line of `PotentialBreaks/kit-folder.txt` there (for example `/media/SDMPC/My Programs`). Each kit is `<name>.xpm`, its WAVs in `<name>_[ProgramData]`, and `<name>.mid`.
 - **Tested on an MPC One only** (Gen1). The 64-bit build for Gen2 MPCs passes Akai's own checks but hasn't been tried on a Gen2 MPC yet.
 
 ## Will it work on my MPC?

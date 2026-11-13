@@ -12,6 +12,9 @@
  *    cut to its length at the MPC tempo, the classic sliced-break method).
  *  - SHUFFLE re-deals the slices over the pads; ORDER puts them back. SAVE GROOVE writes a MIDI file of the original slice
  *    order (PotentialBreaks/<name>.mid on the library's drive) to load into a sequence.
+ *  - SAVE KIT writes the 16 pads, as heard (tempo, pitch and shuffle), as an MPC drum program: <name>.xpm and its WAVs in
+ *    <name>_[ProgramData]/, plus the groove as <name>.mid, in PotentialBreaks/Kits on the library's drive, or the folder
+ *    named on the first line of PotentialBreaks/kit-folder.txt there (src/kit_writer.h).
  * 44.1 kHz, interleaved int16 stereo; render() may be asked for 1..128 frames (SAMPLE_ACCURATE). */
 #define _GNU_SOURCE
 #include <ctype.h>
@@ -29,6 +32,7 @@
 #include <unistd.h>
 #include "engine.h"
 #include "../shared/looks/potential_theme.h"   /* the LOOK switch (parameter "theme") */
+#include "kit_writer.h"                         /* SAVE KIT: an MPC drum program */
 
 #define DR_WAV_IMPLEMENTATION
 #define DR_WAV_NO_STDIO_WIDE
@@ -51,6 +55,7 @@ enum {
     P_CHOP, P_BARS, P_TEMPO_MODE, P_PITCH, P_CHOKE, P_VOLUME,
     P_SHUFFLE, P_ORDER, P_LEARN, P_PLAY_LOOP, P_SAVE_GROOVE, P_BASE_NOTE, P_RESCAN,
     P_RANDOM_BREAK,   /* 1.1.4: RANDOM BREAK moved here; P_RANDOM (parameter 0) is a dead slot, see set_param */
+    P_SAVE_KIT,       /* 1.3.0 (after the LOOK parameter in params.json) */
     NP
 };
 static const char *const PKEY[NP] = {
@@ -58,7 +63,7 @@ static const char *const PKEY[NP] = {
     "lib_name", "break_name", "info", "status",
     "chop", "bars", "tempo_mode", "pitch", "choke", "volume",
     "shuffle", "order", "learn", "play_loop", "save_groove", "base_note", "rescan",
-    "random_break",
+    "random_break", "save_kit",
 };
 enum { CHOP_GRID8, CHOP_GRID16, CHOP_HITS };
 enum { TM_REPITCH, TM_STRETCH };
@@ -580,7 +585,7 @@ typedef struct {
     pthread_t th; int th_ok;
     pthread_mutex_t mx; pthread_cond_t cv;
     int quit;
-    int rq_random, rq_prev, rq_next, rq_lib, rq_rechop, rq_save, rq_restore, rq_rescan;
+    int rq_random, rq_prev, rq_next, rq_lib, rq_rechop, rq_save, rq_restore, rq_rescan, rq_kit;
     char restore_name[160];
     library_t libs;
     int scanned;
@@ -671,26 +676,19 @@ static void wrvar(FILE *f, unsigned long v) {
     while ((v >>= 7)) b[n++] = 128 | (v & 127);
     while (n--) fputc(b[n], f);
 }
-static void save_groove(pb_t *s, const loop_t *L, const int *perm) {
-    if (!L || !s->libs.root_drive[0]) { set_text(s, s->status, sizeof s->status, "NOTHING TO SAVE"); return; }
-    char dir[512], path[1024], clean[160];
-    snprintf(dir, sizeof dir, "%s/PotentialBreaks", s->libs.root_drive);
-    mkdir(dir, 0777);
-    int k = 0;
-    for (const char *c = L->name; *c && k < (int)sizeof clean - 1; c++) clean[k++] = (*c == '/' || *c == '\\') ? '-' : *c;
-    clean[k] = 0;
-    snprintf(path, sizeof path, "%s/%s.mid", dir, clean);
+/* the groove (the original slice order, on the pads as they are now) as a MIDI file at path; tempo 0 = the loop's own */
+static int write_groove(pb_t *s, const loop_t *L, const int *perm, const char *path, double tempo, int base) {
     FILE *f = fopen(path, "wb");
-    if (!f) { set_text(s, s->status, sizeof s->status, "COULDN'T WRITE THE MIDI FILE"); return; }
+    if (!f) return -1;
     const int PPQ = 96;
     int inv[NPADS];   /* slice -> pad */
     for (int i = 0; i < NPADS; i++) inv[i] = i;
     for (int pad = 0; pad < NPADS; pad++) if (perm[pad] < NPADS) inv[perm[pad]] = pad;
-    int base = (int)s->p[P_BASE_NOTE];
+    (void)s;
     /* track data in memory first (its length goes in the header) */
     char *buf = NULL; size_t blen = 0;
     FILE *t = open_memstream(&buf, &blen);
-    long us = (long)(60000000.0 / L->bpm);
+    long us = (long)(60000000.0 / (tempo > 0 ? tempo : L->bpm));
     fputc(0, t); fputc(0xFF, t); fputc(0x51, t); fputc(3, t); fputc((us >> 16) & 255, t); fputc((us >> 8) & 255, t); fputc(us & 255, t);
     long last_tick = 0;
     for (int i = 0; i < L->nslices; i++) {
@@ -709,8 +707,95 @@ static void save_groove(pb_t *s, const loop_t *L, const int *perm) {
     fwrite("MThd", 1, 4, f); wr32(f, 6); wr16(f, 0); wr16(f, 1); wr16(f, PPQ);
     fwrite("MTrk", 1, 4, f); wr32(f, (long)blen); fwrite(buf, 1, blen, f);
     free(buf);
-    fclose(f);
+    return fclose(f);
+}
+
+static void save_groove(pb_t *s, const loop_t *L, const int *perm) {
+    if (!L || !s->libs.root_drive[0]) { set_text(s, s->status, sizeof s->status, "NOTHING TO SAVE"); return; }
+    char dir[512], path[1024], clean[160];
+    snprintf(dir, sizeof dir, "%s/PotentialBreaks", s->libs.root_drive);
+    mkdir(dir, 0777);
+    int k = 0;
+    for (const char *c = L->name; *c && k < (int)sizeof clean - 1; c++) clean[k++] = (*c == '/' || *c == '\\') ? '-' : *c;
+    clean[k] = 0;
+    snprintf(path, sizeof path, "%s/%s.mid", dir, clean);
+    if (write_groove(s, L, perm, path, 0, (int)s->p[P_BASE_NOTE])) { set_text(s, s->status, sizeof s->status, "COULDN'T WRITE THE MIDI FILE"); return; }
     set_text(s, s->status, sizeof s->status, "SAVED: PotentialBreaks/%.60s.mid", clean);
+}
+
+/* one slice, as a pad plays it at full velocity: the same rate, fades and STRETCH cut as start_voice() and render() */
+static float *render_slice(const loop_t *L, int slice, double rate, long max_out, long *out_frames) {
+    long start = L->slice_start[slice], end = start + L->slice_len[slice];
+    long n = (long)((double)(end - start) / rate) + 2;
+    if (max_out >= 0 && n > max_out + 132) n = max_out + 132;
+    float *o = calloc((size_t)n * 2, sizeof(float));
+    if (!o) return NULL;
+    double pos = (double)start; long played = 0; int fade_in = 22, stopping = 0, fade_out = 132; long k = 0;
+    for (; k < n; k++) {
+        long i0 = (long)pos;
+        if (i0 + 1 >= end) break;
+        if (max_out >= 0 && played >= max_out && !stopping) stopping = 1;
+        double fr = pos - i0;
+        float g = 1.0f;
+        if (fade_in > 0) { g *= 1.0f - fade_in / 22.0f; fade_in--; }
+        long left = (long)((end - pos) / rate);
+        if (left < 88) g *= left / 88.0f;
+        if (stopping) { g *= fade_out / 132.0f; if (--fade_out <= 0) break; }
+        for (int c = 0; c < 2; c++) {
+            float a = L->lr[2 * i0 + c], b = L->lr[2 * (i0 + 1) + c];
+            o[2 * k + c] = (a + (b - a) * (float)fr) * g;
+        }
+        pos += rate; played++;
+    }
+    *out_frames = k;
+    return o;
+}
+
+/* where kits go: the first line of PotentialBreaks/kit-folder.txt on the library's drive, else PotentialBreaks/Kits there */
+static void kit_folder(pb_t *s, char *dir, size_t n) {
+    char p[600];
+    snprintf(dir, n, "%s/PotentialBreaks/Kits", s->libs.root_drive);
+    snprintf(p, sizeof p, "%s/PotentialBreaks/kit-folder.txt", s->libs.root_drive);
+    FILE *f = fopen(p, "r");
+    if (!f) return;
+    char line[512];
+    if (fgets(line, sizeof line, f)) {
+        size_t k = strlen(line);
+        while (k && (line[k - 1] == '\n' || line[k - 1] == '\r' || line[k - 1] == ' ')) line[--k] = 0;
+        if (line[0] == '/') snprintf(dir, n, "%s", line);
+        else if (line[0] && line[0] != '#') snprintf(dir, n, "%s/%s", s->libs.root_drive, line);
+    }
+    fclose(f);
+}
+
+/* SAVE KIT: the 16 pads as heard, as an MPC drum program (kit_writer.h), and the groove beside it */
+static void save_kit(pb_t *s, const loop_t *L, const int *perm, double hb, double pitch, int stretch) {
+    if (!L || !s->libs.root_drive[0] || L->nslices < 1) { set_text(s, s->status, sizeof s->status, "NOTHING TO SAVE"); return; }
+    set_text(s, s->status, sizeof s->status, "SAVING THE KIT...");
+    if (hb <= 0) hb = L->bpm;
+    double tune = pow(2.0, pitch / 12.0);
+    double rate = stretch ? tune : (hb / L->bpm) * tune;
+    float *pads[NPADS] = {0}; long frames[NPADS] = {0};
+    int ok = 1;
+    for (int pad = 0; pad < NPADS && ok; pad++) {
+        int sl = perm[pad];
+        if (sl >= L->nslices) sl %= L->nslices;
+        long max_out = stretch ? (long)((double)L->slice_len[sl] * L->bpm / hb) : -1;
+        pads[pad] = render_slice(L, sl, rate, max_out, &frames[pad]);
+        if (!pads[pad]) ok = 0;
+    }
+    char dir[600], name[112], err[96], want[200];
+    kit_folder(s, dir, sizeof dir);
+    snprintf(want, sizeof want, "%s %.0f", L->name, hb);
+    if (ok) ok = !kit_write(dir, want, hb, NPADS, pads, frames, name, sizeof name, err, sizeof err);
+    else snprintf(err, sizeof err, "OUT OF MEMORY");
+    for (int pad = 0; pad < NPADS; pad++) free(pads[pad]);
+    if (!ok) { set_text(s, s->status, sizeof s->status, "%s", err); return; }
+    char mid[800];
+    snprintf(mid, sizeof mid, "%s/%s.mid", dir, name);
+    write_groove(s, L, perm, mid, hb, 36);   /* the program's pads A01-A16 are notes 36-51 (its padNoteMap) */
+    const char *shown = strrchr(dir, '/'); shown = shown ? shown + 1 : dir;
+    set_text(s, s->status, sizeof s->status, "SAVED KIT: %.40s  (IN %.30s)", name, shown);
 }
 
 static void scan(pb_t *s) {
@@ -735,12 +820,12 @@ static void *worker(void *arg) {
     for (;;) {
         pthread_mutex_lock(&s->mx);
         while (!s->quit && !s->rq_random && !s->rq_prev && !s->rq_next && !s->rq_lib && !s->rq_rechop && !s->rq_save &&
-               !s->rq_restore && !s->rq_rescan && !s->garbage)
+               !s->rq_restore && !s->rq_rescan && !s->rq_kit && !s->garbage)
             pthread_cond_wait(&s->cv, &s->mx);
         if (s->quit) { pthread_mutex_unlock(&s->mx); break; }
         int r = s->rq_random, pv = s->rq_prev, nx = s->rq_next, lb = s->rq_lib, rc = s->rq_rechop, sv = s->rq_save,
-            rs = s->rq_restore, rsc = s->rq_rescan;
-        s->rq_random = s->rq_prev = s->rq_next = s->rq_lib = s->rq_rechop = s->rq_save = s->rq_restore = s->rq_rescan = 0;
+            rs = s->rq_restore, rsc = s->rq_rescan, kt = s->rq_kit;
+        s->rq_random = s->rq_prev = s->rq_next = s->rq_lib = s->rq_rechop = s->rq_save = s->rq_restore = s->rq_rescan = s->rq_kit = 0;
         char want[160]; snprintf(want, sizeof want, "%s", s->restore_name);
         pthread_mutex_unlock(&s->mx);
         pthread_mutex_lock(&s->xfer_mx);
@@ -783,6 +868,16 @@ static void *worker(void *arg) {
             const loop_t *L = s->next ? s->next : s->cur;   /* the newest loop */
             int perm[NPADS]; memcpy(perm, s->perm, sizeof perm);
             if (L) save_groove(s, L, perm);
+            pthread_mutex_unlock(&s->xfer_mx);
+        }
+        if (kt) {   /* the audio thread may swap loops meanwhile: the old one waits in garbage until we are done */
+            pthread_mutex_lock(&s->xfer_mx);
+            const loop_t *L = s->next ? s->next : s->cur;
+            int perm[NPADS]; memcpy(perm, s->perm, sizeof perm);
+            double hb = s->host_bpm, pitch = s->p[P_PITCH];
+            int stretch = (int)s->p[P_TEMPO_MODE] == TM_STRETCH;
+            if (L) save_kit(s, L, perm, hb, pitch, stretch);
+            else set_text(s, s->status, sizeof s->status, "PICK A BREAK FIRST");
             pthread_mutex_unlock(&s->xfer_mx);
         }
     }
@@ -1018,6 +1113,7 @@ static void set_param(void *inst, const char *key, const char *val) {
         return;
     case P_PLAY_LOOP: if (press) start_voice(s, 0, 110, 1); return;
     case P_SAVE_GROOVE: if (press) wake(s, &s->rq_save, 1); return;
+    case P_SAVE_KIT: if (press) wake(s, &s->rq_kit, 1); return;
     case P_RESCAN: if (press) wake(s, &s->rq_rescan, 1); return;
     case P_LIB_NAME: case P_BREAK_NAME: case P_INFO: case P_STATUS: return;
     case P_CHOP: case P_BARS: {
@@ -1070,7 +1166,7 @@ static int get_param(void *inst, const char *key, char *buf, int buf_len) {
     int n;
     if (txt) n = snprintf(buf, buf_len, "%s", txt);
     else if (i == P_RANDOM || i == P_RANDOM_BREAK || i == P_PREV || i == P_NEXT || i == P_LIB_NEXT || i == P_SHUFFLE || i == P_ORDER || i == P_LEARN ||
-             i == P_PLAY_LOOP || i == P_SAVE_GROOVE || i == P_RESCAN)
+             i == P_PLAY_LOOP || i == P_SAVE_GROOVE || i == P_RESCAN || i == P_SAVE_KIT)
         n = snprintf(buf, buf_len, "0");
     else n = snprintf(buf, buf_len, "%g", (double)s->p[i]);
     pthread_mutex_unlock(&s->text_mx);

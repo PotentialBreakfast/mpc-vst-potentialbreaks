@@ -46,6 +46,9 @@ Put the tempo in the file name, for example `Funky Drummer 101bpm.wav`, and it w
 **Where does SAVE GROOVE put the MIDI file?**
 In a `PotentialBreaks` folder on the drive your breaks are on. Load it into a sequence on the same track to play the break in its original order.
 
+**Where does SAVE KIT put the program?**
+In `PotentialBreaks/Kits` on the drive your breaks are on: `<break name> <tempo>.xpm`, its WAVs in the `_[ProgramData]` folder beside it, and the groove as a `.mid`. Browse there on the MPC and load the `.xpm` like any program. To save into your own programs folder, put its full path (like `/media/SDMPC/My Programs`) on the first line of a text file `PotentialBreaks/kit-folder.txt` on that drive.
+
 **It only used part of my long file.**
 Files longer than 3 minutes are only read for their first 3 minutes, to keep the MPC's memory safe. For whole albums, cut them into shorter files.
 
