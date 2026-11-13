@@ -2,7 +2,8 @@
  *   <dir>/<name>.xpm                       gzip of the program (src/kit_template.h, tools/make_kit_template.py)
  *   <dir>/<name>_[ProgramData]/<pad>.wav   the samples, 16-bit stereo 44.1 kHz
  * Standard C only: its own gzip writer (deflate with the fixed Huffman codes and a hash-chain match finder, ample for
- * this very repetitive JSON: about 8.5 MB down to a few hundred KB). Included once, by breaks.c. */
+ * this very repetitive JSON: about 8.5 MB down to a few hundred KB). Shared by PotentialBreaks and PotentialWax (the
+ * same file in both repos); included once, by the plugin's .c file. */
 #include <errno.h>
 #include "kit_template.h"
 
@@ -182,10 +183,17 @@ static int kw_write_wav(const char *path, const float *lr, long frames) {
     return fclose(f) == 0 && ok ? 0 : -1;
 }
 
-/* Write the drum program <dir>/<name>.xpm (name made unique: "<name> 2", ...) with pad i = pads[i] (frames[i] stereo
- * frames; frames 0 = empty pad), at tempo bpm. *out_name gets the name used. 0 on success, else a message in err. */
-static int kit_write(const char *dir, const char *want, double bpm, int npads, float *const *pads, const long *frames,
-                     char *out_name, size_t out_n, char *err, size_t errn) {
+/* Pad i's sound for kit_write_cb(): stereo frames (*frames of them; 0 or NULL = an empty pad), made one pad at a time so
+ * a kit of long pads never needs them all in memory. done(ctx, i, pad) is called once that pad is written. */
+typedef float *(*kit_pad_fn)(void *ctx, int pad, long *frames);
+typedef void (*kit_done_fn)(void *ctx, int pad, float *lr);
+
+/* Write the drum program <dir>/<name>.xpm (name made unique: "<name> 2", ...) with pad i = get(ctx, i), at tempo bpm.
+ * frames_out[i] gets each pad's length (0 = empty), *out_name the name used. 0 on success, else a message in err. */
+static int kit_write_cb(const char *dir, const char *want, double bpm, int npads, kit_pad_fn get, kit_done_fn done,
+                        void *ctx, long *frames_out, char *out_name, size_t out_n, char *err, size_t errn) {
+    long *frames = frames_out;
+    for (int i = 0; i < npads; i++) frames[i] = 0;
     char base[96], name[112], path[1400], pdir[1200];
     kw_clean(base, sizeof base, want);
     if (kw_mkdirs(dir)) { snprintf(err, errn, "CAN'T MAKE THE KIT FOLDER"); return -1; }
@@ -201,7 +209,7 @@ static int kit_write(const char *dir, const char *want, double bpm, int npads, f
     if (mkdir(pdir, 0777)) { snprintf(err, errn, "CAN'T WRITE TO THE KIT FOLDER"); return -1; }
     char tempo[32]; snprintf(tempo, sizeof tempo, "%.6g", bpm > 0 ? bpm : 120.0);
     if (!strchr(tempo, '.') && !strchr(tempo, 'e')) strcat(tempo, ".0");
-    uint32_t rnd = (uint32_t)time(NULL) ^ (uint32_t)(uintptr_t)pads;
+    uint32_t rnd = (uint32_t)time(NULL) ^ (uint32_t)(uintptr_t)ctx;
     kw_str_t s = {0};
     kw_field_t top[] = {{"@PROGRAM@", NULL}};
     char qname[128]; snprintf(qname, sizeof qname, "\"%s\"", name);
@@ -212,15 +220,21 @@ static int kit_write(const char *dir, const char *want, double bpm, int npads, f
         char sn[160], qn[170], qf[176], end[24], seed[16], rseed[16];
         rnd = rnd * 1664525u + 1013904223u; snprintf(seed, sizeof seed, "%u", 1 + (rnd >> 8) % 999999u);
         rnd = rnd * 1664525u + 1013904223u; snprintf(rseed, sizeof rseed, "%u", 1 + (rnd >> 8) % 999999u);
-        int filled = i < npads && frames[i] > 1 && pads[i];
+        float *lr = NULL; long fr = 0;
+        if (i < npads) lr = get(ctx, i, &fr);
+        int filled = lr && fr > 1;
+        if (i < npads) frames[i] = filled ? fr : 0;
         if (filled) {
             snprintf(sn, sizeof sn, "%s %02d", name, i + 1);
             snprintf(path, sizeof path, "%s/%s.wav", pdir, sn);
-            if (kw_write_wav(path, pads[i], frames[i])) { free(s.b); snprintf(err, errn, "COULDN'T WRITE THE SAMPLES"); return -1; }
+            int bad = kw_write_wav(path, lr, fr);
+            done(ctx, i, lr);
+            if (bad) { free(s.b); snprintf(err, errn, "COULDN'T WRITE THE SAMPLES"); return -1; }
             snprintf(qn, sizeof qn, "\"%s\"", sn); snprintf(qf, sizeof qf, "\"%s.wav\"", sn);
             snprintf(end, sizeof end, "%ld", frames[i] - 1);
             used++;
-        } else { snprintf(qn, sizeof qn, "\"\""); snprintf(qf, sizeof qf, "\"\""); snprintf(end, sizeof end, "0"); }
+        } else {
+            if (i < npads && lr) done(ctx, i, lr); snprintf(qn, sizeof qn, "\"\""); snprintf(qf, sizeof qf, "\"\""); snprintf(end, sizeof end, "0"); }
         kw_field_t f[] = {{"@TEMPO@", filled ? tempo : "120.0"}, {"@NAME@", qn}, {"@FILE@", qf}, {"@END@", end},
                           {"@SEED@", seed}, {"@RSEED@", rseed}};
         if (i) kw_adds(&s, ",\n");
@@ -229,7 +243,7 @@ static int kit_write(const char *dir, const char *want, double bpm, int npads, f
     kw_fill(&s, KIT_MID, NULL, 0);
     int first = 1;
     for (int i = 0; i < npads; i++) {
-        if (!(frames[i] > 1 && pads[i])) continue;
+        if (!(frames[i] > 1)) continue;
         char sn[160], qn[170], qf[176];
         snprintf(sn, sizeof sn, "%s %02d", name, i + 1);
         snprintf(qn, sizeof qn, "\"%s\"", sn); snprintf(qf, sizeof qf, "\"%s.wav\"", sn);
@@ -254,4 +268,16 @@ static int kit_write(const char *dir, const char *want, double bpm, int npads, f
     if (!ok || rename(tmp, path)) { unlink(tmp); snprintf(err, errn, "COULDN'T WRITE THE PROGRAM"); return -1; }
     snprintf(out_name, out_n, "%s", name);
     return 0;
+}
+
+/* the same with every pad already made: pad i = pads[i], frames[i] stereo frames (frames 0 = empty pad) */
+typedef struct { float *const *pads; const long *frames; } kw_arr_t;
+static float *kw_arr_get(void *ctx, int i, long *frames) { kw_arr_t *a = ctx; *frames = a->frames[i]; return a->pads[i]; }
+static void kw_arr_done(void *ctx, int i, float *lr) { (void)ctx; (void)i; (void)lr; }
+static int kit_write(const char *dir, const char *want, double bpm, int npads, float *const *pads, const long *frames,
+                     char *out_name, size_t out_n, char *err, size_t errn) {
+    kw_arr_t a = {pads, frames};
+    long fr[128];
+    if (npads > 128) npads = 128;
+    return kit_write_cb(dir, want, bpm, npads, kw_arr_get, kw_arr_done, &a, fr, out_name, out_n, err, errn);
 }
