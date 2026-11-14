@@ -280,6 +280,7 @@
       "name": "Browse Next Library",
       "type": "trigger",
       "momentary": true
-    }
+    },
+    {"key": "manual_page", "name": "Manual Page", "options": ["START", "CONTROLS", "SAVING", "SUITE", "HELP"], "default": 0}
   ]
 }

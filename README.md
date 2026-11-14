@@ -4,7 +4,7 @@
 
 ![PotentialBreaks's page on the MPC (new look)](docs/images/potentialbreaks.png)
 
-*Instrument plugin · MPC OS 3.x · Gen1 and Gen2 · v1.5.0*
+*Instrument plugin · MPC OS 3.x · Gen1 and Gen2 · v1.6.0*
 
 Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC like its own instruments, with its own touchscreen page, Q-Link control and project recall, and no computer needed while you play.
 
@@ -26,6 +26,8 @@ Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC 
 - **SAVE KIT** turns the 16 pads into a real **MPC drum program**: each pad saved as a WAV, as you hear it (at your tempo, pitch and shuffle), on pads A01-A16, with the groove beside it as a MIDI file. Load it like any program and keep it after the plugin is gone. MPC OS 3.10.1 or later.
 - **CHOKE**, **PITCH** (±12 semitones) and **VOLUME** are here too.
 - Your project remembers the break, the chop, the pad order and the settings.
+
+**MANUAL page:** the manual is on the MPC's screen too. Tap **MANUAL**, then the page buttons along the top. The full [PotentialSuite manual](https://github.com/PotentialBreakfast/potential-plugins/blob/main/MANUAL.md) covers every plugin, the FX chains and a developer reference.
 
 ## Where it finds your breaks
 

@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include "engine.h"
 #include "../shared/looks/potential_theme.h"   /* the LOOK switch (parameter "theme") */
+#include "../shared/potential_manual.h"        /* the MANUAL tab's page */
 #include "kit_writer.h"                         /* SAVE KIT: an MPC drum program */
 
 #define DR_WAV_IMPLEMENTATION
@@ -616,6 +617,7 @@ typedef struct {
     unsigned seed;
     int saved_lib; char saved_name[160];
     pt_theme_t theme;   /* which look MPC loads next time: not part of the saved state */
+    pm_manual_t manual; /* the MANUAL tab's page: not part of the sound or the saved state */
 } pb_t;
 
 static void set_text(pb_t *s, char *dst, size_t n, const char *fmt, ...) __attribute__((format(printf, 4, 5)));
@@ -1151,6 +1153,7 @@ static void shuffle(pb_t *s) {
 static void set_param(void *inst, const char *key, const char *val) {
     pb_t *s = inst;
     if (pt_theme_set(&s->theme, key, val)) return;
+    if (pm_set(&s->manual, key, val)) return;
     if (!strcmp(key, "lfo_bpm")) { s->host_bpm = (float)atof(val); return; }
     if (!strncmp(key, "pick_", 5)) {   /* a BROWSE row: any tap (the row toggles either way) loads that break */
         int row = atoi(key + 5) - 1;
@@ -1249,6 +1252,7 @@ int mpc_engine_changed(void *inst, char *key, int len) {
 static int get_param(void *inst, const char *key, char *buf, int buf_len) {
     pb_t *s = inst;
     { int pt_n = pt_theme_get(&s->theme, key, buf, buf_len); if (pt_n) return pt_n; }
+    { int pm_n = pm_get(&s->manual, key, buf, buf_len); if (pm_n) return pm_n; }
     if (!strcmp(key, "display_rev")) {
         pthread_mutex_lock(&s->text_mx);
         int n = snprintf(buf, buf_len, "%u", s->display_rev);

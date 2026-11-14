@@ -1,0 +1,54 @@
+= START
+# PotentialBreaks: dig, chop, play
+One tap for a random drum break from your own library, sliced across 16 pads and matched to your project's tempo.
+
+- Load it as a plugin instrument (a plugin program). The pads play the slices.
+- Put your breaks in a folder called DRUM BREAKS LIBRARY at the top of an SD card, USB drive or SSD. WAV and FLAC.
+- Tap RANDOM BREAK, or ROLL for a random break played a random way.
+- SAVE KIT turns the 16 pads into a real MPC drum program.
+
+The full PotentialSuite manual: github.com/PotentialBreakfast/potential-plugins
+
+= CONTROLS
+# Controls
+- RANDOM BREAK picks a break. PREV and NEXT step through them. LIBRARY switches folders.
+- BROWSE page: 10 breaks at a time, tap the one you want. RESCAN after adding folders.
+- ROLL: a random break and a random chop, loop length, pad order and pitch. MILD, MEDIUM or WILD sets how far it goes.
+- CHOP: 8 or 16 even slices on the beat (moved onto the nearest hit), or the 16 strongest hits.
+- TEMPO: Re-pitch speeds the break up or down to your tempo like an old sampler. Stretch keeps each slice at its own pitch and cuts it to length.
+- SHUFFLE re-deals the slices across the pads. ORDER puts them back.
+- PLAY LOOP (or the pad after pad 16) plays the whole loop.
+- CHOKE, PITCH (12 semitones each way) and VOLUME.
+
+= SAVING
+# Saving your work
+- Your project remembers the break, the chop, the pad order and the settings.
+- SAVE GROOVE writes a MIDI file of the break's original slice order, to load into a sequence.
+- SAVE KIT writes an MPC drum program: each pad as a WAV, as you hear it, on pads A01 to A16, with the groove beside it as a MIDI file. Load it like any program and keep it after the plugin is gone. MPC OS 3.10.1 or later.
+- Kits go to PotentialBreaks/Kits on the drive your breaks are on. Grooves go to the PotentialBreaks folder there.
+
+# Where it finds your breaks
+- A folder called DRUM BREAKS LIBRARY at the top of any drive.
+- Any folder at the top of a drive with break in its name.
+- Folders you list in PotentialBreaks/folders.txt on the breaks drive, one per line.
+
+= SUITE
+# With the other plugins
+- Break Bus chain on the break's track: Punch > Grit > Bleed > Patina, the same preset name in each.
+- Drum-bus pair: Punch > Heat, the same name in each (Boom Bap Bus, Lo-Fi Bus, Modern Bus or Glue Bus).
+- PotentialWarp as the last insert for half time, tape stops and stutters in time with the beat.
+- PotentialPunch alone, on Break Smack, is a quick way to make a soft break hit.
+
+Effects go on the track's inserts. SAVE KIT saves the pads as you hear them in the plugin, before the track's effects.
+
+= HELP
+# Good to know
+- If pad 1 does not play the first slice, tap LEARN and then hit the pad you want as pad 1.
+- Tempo comes from the file name when it has one, like Funky Drummer 101bpm.wav. Otherwise it is measured, between 80 and 160 BPM.
+- Long tracks get a random 1, 2 or 4 bar loop cut from them, starting on a hit. Only the first 3 minutes of a file are used.
+- Stretch mode does not time-stretch. At a slower tempo you hear small gaps between hits, the classic chopped sound.
+- 8 voices, 44.1 kHz playback.
+- Q-Links: PITCH, VOLUME, CHOP, BARS, TEMPO and CHOKE.
+- Looks: Print Plate, Night Rack or Colour Block, on the SETTINGS page.
+
+Ideas, bugs and criticism are all welcome: github.com/PotentialBreakfast/mpc-vst-potentialbreaks
