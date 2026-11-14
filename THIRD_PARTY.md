@@ -38,7 +38,7 @@ projects with their own licences.
 
 ## dr_libs (David Reid) – public domain (Unlicense) or MIT-0
 
-`src/vendor/dr_wav.h` and `dr_flac.h`, from https://github.com/mackron/dr_libs. Details and the exact version are in `src/vendor/VENDORED.md`.
+`src/vendor/dr_wav.h`, `dr_flac.h` and `dr_mp3.h`, from https://github.com/mackron/dr_libs. Details and the exact version are in `src/vendor/VENDORED.md`.
 
 ## Fonts – SIL Open Font License 1.1
 

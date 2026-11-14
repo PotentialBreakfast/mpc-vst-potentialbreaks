@@ -31,7 +31,7 @@ It looks for breaks in three places:
 - any folder at the top of a drive with **break** in its name (`My Breaks`, `Breakbeats`…)
 - folders listed in `PotentialBreaks/folders.txt`
 
-Rename or move your folder, then tap **RESCAN**. Only **WAV** and **FLAC** files are read, not MP3 or AIFF.
+Rename or move your folder, then tap **RESCAN**. **WAV**, **FLAC** and **MP3** files are read (not AIFF).
 
 **Pad 1 doesn't play the first slice, or the pads play the wrong slices.**
 The MPC treats a plugin track like a keyboard, so depending on the pad bank and octave the pads send different notes. Tap **LEARN**, then hit the pad you want as pad 1. The STATUS line shows the last note received.

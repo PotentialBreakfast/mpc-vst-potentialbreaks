@@ -4,7 +4,7 @@
 
 ![PotentialBreaks's page on the MPC (new look)](docs/images/potentialbreaks.png)
 
-*Instrument plugin · MPC OS 3.x · Gen1 and Gen2 · v1.6.0*
+*Instrument plugin · MPC OS 3.x · Gen1 and Gen2 · v1.7.0*
 
 Free and open source (MIT), made by **PotentialBreaks**. It runs inside the MPC like its own instruments, with its own touchscreen page, Q-Link control and project recall, and no computer needed while you play.
 
@@ -39,7 +39,7 @@ You don't have to type any paths. It looks in three places:
 
 Every sub-folder becomes a **library** you can step through with LIBRARY. Files lying loose in a folder make a library of their own. After adding folders, tap **RESCAN**.
 
-WAV and FLAC files are supported.
+WAV, FLAC and MP3 files are supported.
 
 ## Playing it from the pads
 
@@ -117,7 +117,7 @@ See [BUILD.md](BUILD.md).
 ## Credits
 
 - Built on **[mpc-vst-plugins](https://github.com/sd88me/mpc-vst-plugins)** by sd88me (MIT), the open kit that makes MPC plugins possible: the plugin wrapper, skin builder and installer.
-- Audio file reading by **[dr_libs](https://github.com/mackron/dr_libs)** (dr_wav and dr_flac) by David Reid (public domain / MIT-0).
+- Audio file reading by **[dr_libs](https://github.com/mackron/dr_libs)** (dr_wav, dr_flac and dr_mp3) by David Reid (public domain / MIT-0).
 - Fonts: **Jost**, **DM Mono**, **IBM Plex Sans Condensed**, **IBM Plex Mono**, **Bricolage Grotesque** and **Space Mono** (SIL Open Font License 1.1), in `vst/skin/looks/fonts/` with their licences.
 - The dark look grew out of the theme I made for sd88me's Lucky Dip.
 - Made with help from Claude (Anthropic).

@@ -3,7 +3,7 @@
 One tap for a random drum break from your own library, sliced across 16 pads and matched to your project's tempo.
 
 - Load it as a plugin instrument (a plugin program). The pads play the slices.
-- Put your breaks in a folder called DRUM BREAKS LIBRARY at the top of an SD card, USB drive or SSD. WAV and FLAC.
+- Put your breaks in a folder called DRUM BREAKS LIBRARY at the top of an SD card, USB drive or SSD. WAV, FLAC or MP3.
 - Tap RANDOM BREAK, or ROLL for a random break played a random way.
 - SAVE KIT turns the 16 pads into a real MPC drum program.
 
