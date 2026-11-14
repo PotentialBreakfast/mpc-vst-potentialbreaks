@@ -1,7 +1,7 @@
 /* PotentialBreaks (PotentialBreaks): a one-tap drum-break slicer for MPC OS standalone devices.
  *
  *  - Reads the break library on the MPC's drives: every sub-folder of a "DRUM BREAKS LIBRARY" folder is a library
- *    (plus "ALL"), WAV and FLAC, up to 4 folder levels deep.
+ *    (plus "ALL"), WAV, FLAC and MP3, up to 4 folder levels deep.
  *  - RANDOM / PREV / NEXT pick a break. Long tracks (> 24 s, e.g. a whole drum-library track) get a random 1, 2 or 4 bar
  *    loop cut from them, starting on a hit; short files are used whole (they are loops already).
  *  - Tempo: the "NNbpm" in the file name when there is one, else measured (onset autocorrelation).
@@ -41,6 +41,8 @@
 #define DR_FLAC_IMPLEMENTATION
 #define DR_FLAC_NO_WCHAR
 #include "vendor/dr_flac.h"
+#define DR_MP3_IMPLEMENTATION
+#include "vendor/dr_mp3.h"
 
 #define FS 44100
 #define NPADS 16
@@ -89,7 +91,7 @@ static int has_ext(const char *n, const char *ext) {
     size_t a = strlen(n), b = strlen(ext);
     return a > b && !strcasecmp(n + a - b, ext);
 }
-static int audio_file(const char *n) { return n[0] != '.' && (has_ext(n, ".wav") || has_ext(n, ".flac")); }
+static int audio_file(const char *n) { return n[0] != '.' && (has_ext(n, ".wav") || has_ext(n, ".flac") || has_ext(n, ".mp3")); }
 
 static void lib_add(library_t *L, const char *path, int lib) {
     if (L->n == L->cap) {
@@ -351,6 +353,16 @@ static int decode(const char *path, pcm_t *out) {
         if (ch && rate && want) raw = malloc((size_t)want * ch * sizeof(float));
         if (raw) n = drflac_read_pcm_frames_f32(f, want, raw);
         drflac_close(f);
+    } else if (has_ext(path, ".mp3")) {
+        /* 1.7.0: MP3. Its length isn't in the file, so read up to the cap and keep what came (no pass over the whole file) */
+        drmp3 m;
+        if (!drmp3_init_file(&m, path, NULL)) return -1;
+        ch = m.channels; rate = m.sampleRate;
+        drmp3_uint64 cap = (drmp3_uint64)(MAX_FILE_SEC * rate);
+        if (ch && rate) raw = malloc((size_t)cap * ch * sizeof(float));
+        if (raw) n = drmp3_read_pcm_frames_f32(&m, cap, raw);
+        drmp3_uninit(&m);
+        if (raw && n && n < cap) { float *t = realloc(raw, (size_t)n * ch * sizeof(float)); if (t) raw = t; }
     } else {
         drwav w;
         if (!drwav_init_file(&w, path, NULL)) return -1;

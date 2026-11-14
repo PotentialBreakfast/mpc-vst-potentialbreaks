@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0 (2026-11)
+- **MP3 breaks.** MP3 files in your DRUM BREAKS LIBRARY are found and played like WAV and FLAC (the first 3 minutes of a long file, as before). Tempo from the file name works the same: `Funky Drummer 101bpm.mp3`. Tap **RESCAN** after adding some.
+- Reading MP3 uses dr_mp3 from dr_libs (public domain / MIT-0), the same library family as the WAV and FLAC readers. Sound, controls and saved projects are unchanged.
+
 ## 1.6.0 (2026-11)
 - **MANUAL page.** The plugin's manual is now on the MPC's screen: tap **MANUAL**, then the page buttons along the top (what it does, the controls, how it works with the other PotentialSuite plugins, and good-to-know notes). The full PotentialSuite manual is on the [PotentialSuite page](https://github.com/PotentialBreakfast/potential-plugins).
 - One parameter was added at the end of the list (Manual Page); saved projects open as before. Sound and controls are unchanged.
