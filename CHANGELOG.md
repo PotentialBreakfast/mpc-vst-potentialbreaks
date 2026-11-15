@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.0 (2026-11-15)
+
+- A fourth look, **Vintage** (Potential1200's late-80s drum-machine look), on the LOOK keys.
+
 ## 1.7.0 (2026-11)
 - **MP3 breaks.** MP3 files in your DRUM BREAKS LIBRARY are found and played like WAV and FLAC (the first 3 minutes of a long file, as before). Tempo from the file name works the same: `Funky Drummer 101bpm.mp3`. Tap **RESCAN** after adding some.
 - Reading MP3 uses dr_mp3 from dr_libs (public domain / MIT-0), the same library family as the WAV and FLAC readers. Sound, controls and saved projects are unchanged.
