@@ -49,6 +49,6 @@ Effects go on the track's inserts. SAVE KIT saves the pads as you hear them in t
 - Stretch mode does not time-stretch. At a slower tempo you hear small gaps between hits, the classic chopped sound.
 - 8 voices, 44.1 kHz playback.
 - Q-Links: PITCH, VOLUME, CHOP, BARS, TEMPO and CHOKE.
-- Looks: Print Plate, Night Rack, Colour Block or Vintage, on the SETTINGS page.
+- Looks: Print Plate, Night Rack, Colour Block, Vintage or Hi-Fi, on the SETTINGS page.
 
 Ideas, bugs and criticism are all welcome: github.com/PotentialBreakfast/mpc-vst-potentialbreaks
